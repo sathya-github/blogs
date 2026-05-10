@@ -2,11 +2,9 @@
 
 If you've spent any time in a Java codebase, you've probably caught yourself writing `throws Exception` just to make the compiler stop complaining — or worse, swallowing errors in an empty catch block and hoping nothing goes wrong. Kotlin runs on the same JVM, uses the same `Throwable` hierarchy, and even shares the `try`/`catch`/`finally`/`throw` keywords. But its approach to exception handling is fundamentally different — and the differences reveal a quietly clever piece of compiler trickery.
 
-Let's start with what's visible at the language level, then dig into how Kotlin actually pulls it off under the hood.
+First the surface. Then the wiring.
 
-## Part 1: How Kotlin Handles Exceptions Differently
-
-### The headline: no checked exceptions
+## The headline: no checked exceptions
 
 Kotlin has no checked exceptions. None. Every exception is effectively unchecked.
 
@@ -28,7 +26,7 @@ The reasoning is the same argument made by Anders Hejlsberg, Bruce Eckel, and ot
 
 The trade-off: you lose the compiler nudge to handle I/O failures, JDBC errors, and the like. You're back to documentation and discipline.
 
-### try/catch is an expression
+## try/catch is an expression
 
 This is the syntactic feature you'll use most often:
 
@@ -42,7 +40,7 @@ val number: Int = try {
 
 In Java you'd need a mutable variable initialized before the try, which is awkward and prevents `final`/`val`. The expression form composes nicely with Kotlin's general "everything is an expression" philosophy.
 
-### Resource management with `use`
+## Resource management with `use`
 
 Java's try-with-resources:
 
@@ -62,7 +60,7 @@ BufferedReader(FileReader(path)).use { br ->
 
 `use` calls `close()` on completion or exception. Functionally identical, but it's a library function rather than language syntax. The advantage: you can write your own `use`-like extensions for any cleanup pattern.
 
-### The `Nothing` type for "this always throws"
+## The `Nothing` type for "this always throws"
 
 ```kotlin
 fun fail(message: String): Nothing {
@@ -75,7 +73,7 @@ val name: String = user.name ?: fail("name required")
 
 `Nothing` is the bottom type — a subtype of every type. Java has no equivalent; you'd return `void` or declare `throws`, and the compiler still wouldn't help with flow analysis the way Kotlin does.
 
-### Standard library precondition helpers
+## Standard library precondition helpers
 
 Instead of writing the throw yourself:
 
@@ -88,7 +86,7 @@ error("unreachable")                                          // IllegalStateExc
 
 The lazy lambda for the message is a nice touch — the string isn't constructed unless the check fails.
 
-### `runCatching` and `Result<T>`
+## `runCatching` and `Result<T>`
 
 ```kotlin
 val result: Result<User> = runCatching {
@@ -102,11 +100,11 @@ result
 
 Closer in spirit to Rust's `Result` or Scala's `Try`. Java has nothing built-in like this; you'd reach for Vavr or roll your own. Use it carefully — `runCatching` catches all `Throwable`, which can hide bugs. Idiomatic Kotlin still uses try/catch for most cases; `runCatching` shines at API boundaries.
 
-### Null safety eliminates a whole category of exceptions
+## Null safety eliminates a whole category of exceptions
 
 Kotlin's biggest practical impact on exception handling isn't in the syntax — it's that NullPointerExceptions largely vanish from day-to-day code. The type system distinguishes `String` from `String?`, and you have `?.`, `?:`, `let`, and (the dangerous one) `!!`. In Java you spend real effort defending against null. In Kotlin, most of that moves to compile time.
 
-## Part 2: But Wait — How Does This Even Work?
+## But wait — how does this even work?
 
 Here's where it gets interesting. If Kotlin doesn't enforce checked exceptions, what happens when Kotlin code calls Java code declared with a `throws` clause? Is there some hidden runtime catching them all? Some clever wrapping?
 
@@ -172,7 +170,7 @@ fun readConfig(): String { ... }
 
 This adds the `Exceptions` attribute to the bytecode so Java's compiler sees it.
 
-## The Takeaway
+## The takeaway
 
 Kotlin's "handling" of checked exceptions is to pretend they don't exist at the language level and let the JVM do what it was always going to do anyway. The whole checked-exception system was a Java-compiler convention from the start, and Kotlin opted out of the convention.
 
